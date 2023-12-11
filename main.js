@@ -1,7 +1,6 @@
 
 var monetized = (type) => `<div style='font-size:13px; margin-top:7px; color: #4CBB17;'>${type} is monetized</div>`;
 var notMonetized = (type) => `<div style='font-size:13px; margin-top:7px; color: #c54949;'>${type} is not monetized</div>`;
-var notSuitable = (type) => `<div style='font-size:13px; margin-top:5px; color: #ee4b2b;'>The Channel is not suitable for monetization check !</div>`;
 var loadingMonetizationStatus = () => `<div style='font-size:13px; margin-top:5px; color: #FFFF00;'>Loading monetization data...</div>`;
 var failedToLoad = () => `<div style='font-size:13px; margin-top:5px; color: #c54949;'>Failed to gather monetization data! Please report this.</div>`;
 
@@ -25,12 +24,12 @@ window.onload = function () {
 };
 
 setInterval(async () => {
+  let newURL = window.location.href.split("&")[0].split("#")[0];
+  if (currentURL == newURL) return;
+  if (!checkForValidURL(newURL)) return;
+  currentURL = newURL;
 
-  if (currentURL == window.location.href.split("&")[0].split("#")[0]) return;
-  if (!checkForValidURL(window.location.href)) return;
-  if (checkForValidURL(window.location.href)) currentURL = window.location.href.split("&")[0].split("#")[0];
-
-  const urlType = getURLType(window.location.href);
+  const urlType = getURLType(newURL);
   
   let addedElement = document.querySelector('.channelMonetization');
   let element = '#channel-tagline';
@@ -74,12 +73,16 @@ setInterval(async () => {
 }, 1000)
 
 async function fetchAndCheckMonetization(urlType) {
+  //console.log('Fetching and checking monetization');
   if (urlType !== 'channel') return false;
+
   // Check Join Button availability
   if (document.getElementById("sponsor-button").childElementCount) return true;
+
   let videoUrls = await getFeaturedVideoUrls(); // Fetch multiple URLs
 
   if (!videoUrls || videoUrls.length === 0) {
+    //console.log('No video URLs found.');
     return false;
   }
 
@@ -91,11 +94,13 @@ async function fetchAndCheckMonetization(urlType) {
 
       // Check if the video is categorized under "Music"
       if (htmlText.includes(`"header":{"richListHeaderRenderer":{"title":{"simpleText":"Music"}`)) {
+        //console.log(`Video [${videoUrl}] is categorized under 'Music' and will be skipped.`);
         continue;
       }
 
       // Check for the yt_ad tag
       if (htmlText.includes(`[{"key":"yt_ad","value":"`)) {
+          //console.log(`Video [${videoUrl}] passes the yt_ad test.`);
           validMonetizedVideos++;
       }
   }
@@ -123,6 +128,8 @@ function extractChannelBaseUrl(url) {
 
 
 async function fetchAndExtractThreeRandomVideoIds(url) {
+  //console.log('Extracting video ids from url:');
+  //console.log(url);
   try {
     let response = await fetch(url);
     let htmlText = await response.text();
@@ -138,6 +145,7 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
       } else if (multiplier === 'M') {
         subscriberCount *= 1000000;
       }
+      //console.log('Subscriber count:', subscriberCount);
       if (subscriberCount < 500) {
         return false;
       }
@@ -164,7 +172,8 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
       }
       start = end;
     }
-
+    //console.log('Video Lengths:', lengths);
+    
     // Extract video IDs
     const idRegex = /"watchEndpoint":\{"videoId":"([^"]+)"/g;
     let ids = [];
@@ -172,7 +181,8 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
     while ((idMatch = idRegex.exec(htmlText)) !== null) {
       ids.push(idMatch[1]);
     }
-
+    //console.log('Video IDs:', ids);
+    
     // Pair lengths and video IDs, and filter for videos longer than 4 minutes
     let longVideos = [];
     for (let i = 0; i < lengths.length; i++) {
@@ -187,7 +197,7 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
       let index = Math.floor(Math.random() * longVideos.length);
       selectedVideos.push(longVideos.splice(index, 1)[0]);
     }
-
+    //console.log('Selected Videos:', selectedVideos);
     return selectedVideos;
   } catch (error) {
     console.error('Error fetching or parsing HTML:', error);
@@ -205,9 +215,11 @@ function isVideoLongerThan4Minutes(lengthText) {
 async function getFeaturedVideoUrls() {
   const base_url = extractChannelBaseUrl(currentURL);
   const video_page_url = base_url + "/videos";
-
+  //console.log(video_page_url);
+  
   try {
     let videoUrls = await fetchAndExtractThreeRandomVideoIds(video_page_url);
+    //console.log(videoUrls);
     return videoUrls;
   } catch (error) {
     console.error('Error in getFeaturedVideoUrls:', error);
