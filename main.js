@@ -59,10 +59,7 @@ setInterval(async () => {
           isMonetized = htmlText.split(`[{"key":"yt_ad","value":"`)[1].split(`"},`)[0] == '1' ? true : false;
       }
     }
-    const element = await waitForElement('.channelMonetization');
-    if (element) {
-      element.innerHTML = isMonetized ? monetized(capitalizeFirstLetter(urlType)) : notMonetized(capitalizeFirstLetter(urlType));
-    }
+    element.innerHTML = isMonetized ? monetized(capitalizeFirstLetter(urlType)) : notMonetized(capitalizeFirstLetter(urlType));
   } catch (e) {
 
     console.error(`[Is YouTube Channel Monetized?] An error occured while attempting to fetch data from YouTube\n${e}`);
