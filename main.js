@@ -6,18 +6,12 @@ var failedToLoad = () => `<div style='font-size:13px; margin-top:5px; color: #c5
 
 var currentURL = window.location.href.split("&")[0].split("#")[0]
 
-document.addEventListener('yt-navigate-start', () => {
-  let currentPageUrl = window.location.href;
-
-  let urlType = getURLType(currentPageUrl);
-});
-
 window.onload = function () {
   if (!checkForValidURL(window.location.href)) return;
 
-  let urlType = getURLType(window.location.href);
+  const urlType = getURLType(window.location.href);
 
-  let element = '#channel-tagline'
+  let element = urlType == 'channel' ? '#channel-tagline' : '#owner-sub-count';
   waitForElement(element).then(() => {
       return getDataOnFirstLoad(urlType);
   });
@@ -31,31 +25,40 @@ setInterval(async () => {
 
   const urlType = getURLType(newURL);
   
-  let addedElement = document.querySelector('.channelMonetization');
-  let element = '#channel-tagline';
+  let addedElement = document.querySelector(getElementType(urlType));
+  let element = urlType == 'channel' ? '#channel-tagline' : '#owner-sub-count';
 
   if (!addedElement) {
-    waitForElement(element)
-      .then(() => {
-        return document.querySelector('#channel-tagline').insertAdjacentHTML('beforebegin', `<div class='channelMonetization'>${loadingMonetizationStatus()}</div>`)
-      });
+    waitForElement(element).then(() => {
+      return document.querySelector(urlType == 'channel' ? '#channel-tagline' : 'h1.style-scope.ytd-watch-metadata').insertAdjacentHTML('beforebegin', `<div class='${urlType == 'channel' ? "channelMonetization" : "videoMonetization"}'>${loadingMonetizationStatus()}</div>`)
+    });
   } else {
     addedElement.innerHTML = loadingMonetizationStatus();
   }
 
   try {
-    // Function to delay execution
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    let isMonetized = false;
+    if (urlType === 'channel') {
+      // Function to delay execution
+      const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Check if URL contains '@' and retry 5 times with 500 ms interval
-    let urlContainsAt = currentURL.includes('@');
-    for (let attempt = 0; attempt < 5 && !urlContainsAt; attempt++) {
-      await delay(500); // Wait for 500 ms
-      currentURL = window.location.href.split("&")[0].split("#")[0]; // Update current URL
-      urlContainsAt = currentURL.includes('@');
+      // Check if URL contains '@' and retry 5 times with 500 ms interval
+      let urlContainsAt = currentURL.includes('@');
+      for (let attempt = 0; attempt < 5 && !urlContainsAt; attempt++) {
+        await delay(500); // Wait for 500 ms
+        currentURL = window.location.href.split("&")[0].split("#")[0]; // Update current URL
+        urlContainsAt = currentURL.includes('@');
+      }
+      isMonetized = await fetchAndCheckMonetization(urlType);
+    } else {
+      let response = await fetch(currentURL);
+      let htmlText = await response.text();
+
+      // Check for the yt_ad tag
+      if (htmlText.includes(`[{"key":"yt_ad","value":"`)) {
+          isMonetized = htmlText.split(`[{"key":"yt_ad","value":"`)[1].split(`"},`)[0] == '1' ? true : false;
+      }
     }
-
-    let isMonetized = await fetchAndCheckMonetization(urlType);
     const element = await waitForElement('.channelMonetization');
     if (element) {
       element.innerHTML = isMonetized ? monetized(capitalizeFirstLetter(urlType)) : notMonetized(capitalizeFirstLetter(urlType));
@@ -73,11 +76,8 @@ setInterval(async () => {
 }, 1000)
 
 async function fetchAndCheckMonetization(urlType) {
-  //console.log('Fetching and checking monetization');
-  if (urlType !== 'channel') return false;
-
   // Check Join Button availability
-  if (document.getElementById("sponsor-button").childElementCount) return true;
+  if (document.getElementById("sponsor-button").childElementCount !== 0) return true;
 
   let videoUrls = await getFeaturedVideoUrls(); // Fetch multiple URLs
 
@@ -101,7 +101,7 @@ async function fetchAndCheckMonetization(urlType) {
       // Check for the yt_ad tag
       if (htmlText.includes(`[{"key":"yt_ad","value":"`)) {
           //console.log(`Video [${videoUrl}] passes the yt_ad test.`);
-          validMonetizedVideos++;
+          if (htmlText.split(`[{"key":"yt_ad","value":"`)[1].split(`"},`)[0] == '1') validMonetizedVideos++;
       }
   }
 
@@ -146,7 +146,7 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
         subscriberCount *= 1000000;
       }
       //console.log('Subscriber count:', subscriberCount);
-      if (subscriberCount < 1000) {
+      if (subscriberCount < 500) {
         return false;
       }
     }
