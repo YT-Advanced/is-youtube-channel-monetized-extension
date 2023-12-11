@@ -146,7 +146,7 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
         subscriberCount *= 1000000;
       }
       //console.log('Subscriber count:', subscriberCount);
-      if (subscriberCount < 500) {
+      if (subscriberCount < 1000) {
         return false;
       }
     }
