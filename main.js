@@ -53,10 +53,7 @@ setInterval(async () => {
     } else {
       let response = await fetch(currentURL);
       let htmlText = await response.text();
-      if (checkSubscriberCount(htmlText)) {
-        isMonetized = false;
-      } else if (htmlText.includes(`[{"key":"yt_ad","value":"`)) {
-        // Check for the yt_ad tag
+      if (htmlText.includes(`[{"key":"yt_ad","value":"`) && !checkSubscriberCount(htmlText)) {
         isMonetized = htmlText.split(`[{"key":"yt_ad","value":"`)[1].split(`"},`)[0] == '1';
       }
 
@@ -131,7 +128,7 @@ function extractChannelBaseUrl(url) {
 // Extract and check subscriber count
 // Return true if the subsciber count is less than 1000
 function checkSubscriberCount(htmlText) {
-  const subCountRegex = /"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":".*\"simpleText\"\:\"([\d.,]+)([\sA-Za-z]{1,5})\s/;
+  const subCountRegex = /"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"[\s\S]{1,50}"simpleText":"([\d.,]+)([\sA-Za-z]{1,5})\s/;
   const subMatch = subCountRegex.exec(htmlText);
   if (subMatch && subMatch[1]) return false;
   return true;
