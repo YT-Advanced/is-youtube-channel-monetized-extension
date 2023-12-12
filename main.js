@@ -38,7 +38,7 @@ setInterval(async () => {
 
   try {
     let isMonetized = false;
-    if (urlType === 'channel') {
+    if (urlType == 'channel') {
       // Function to delay execution
       const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -53,13 +53,18 @@ setInterval(async () => {
     } else {
       let response = await fetch(currentURL);
       let htmlText = await response.text();
-
-      // Check for the yt_ad tag
-      if (htmlText.includes(`[{"key":"yt_ad","value":"`)) {
-          isMonetized = htmlText.split(`[{"key":"yt_ad","value":"`)[1].split(`"},`)[0] == '1' ? true : false;
+      if (checkSubscriberCount(htmlText)) {
+        isMonetized = false;
+      } else if (htmlText.includes(`[{"key":"yt_ad","value":"`)) {
+        // Check for the yt_ad tag
+        isMonetized = htmlText.split(`[{"key":"yt_ad","value":"`)[1].split(`"},`)[0] == '1';
       }
+
     }
-    element.innerHTML = isMonetized ? monetized(capitalizeFirstLetter(urlType)) : notMonetized(capitalizeFirstLetter(urlType));
+    const element = await waitForElement(getElementType(urlType));
+    if (element) {
+      element.innerHTML = isMonetized ? monetized(capitalizeFirstLetter(urlType)) : notMonetized(capitalizeFirstLetter(urlType));
+    }
   } catch (e) {
 
     console.error(`[Is YouTube Channel Monetized?] An error occured while attempting to fetch data from YouTube\n${e}`);
@@ -123,6 +128,14 @@ function extractChannelBaseUrl(url) {
   return match ? match[1] : null;
 }
 
+// Extract and check subscriber count
+// Return true if the subsciber count is less than 1000
+function checkSubscriberCount(htmlText) {
+  const subCountRegex = /"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":".*\"simpleText\"\:\"([\d.,]+)([\sA-Za-z]{1,5})\s/;
+  const subMatch = subCountRegex.exec(htmlText);
+  if (subMatch && subMatch[1]) return false;
+  return true;
+}
 
 async function fetchAndExtractThreeRandomVideoIds(url) {
   //console.log('Extracting video ids from url:');
@@ -132,21 +145,7 @@ async function fetchAndExtractThreeRandomVideoIds(url) {
     let htmlText = await response.text();
 
     // Extract and check subscriber count
-    const subCountRegex = /"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"([\d.]+)([MK]?) subscribers/;
-    const subMatch = subCountRegex.exec(htmlText);
-    if (subMatch && subMatch[1]) {
-      let subscriberCount = parseFloat(subMatch[1].replace(',', '.'));
-      let multiplier = subMatch[2];
-      if (multiplier === 'K') {
-        subscriberCount *= 1000;
-      } else if (multiplier === 'M') {
-        subscriberCount *= 1000000;
-      }
-      //console.log('Subscriber count:', subscriberCount);
-      if (subscriberCount < 500) {
-        return false;
-      }
-    }
+    if (checkSubscriberCount(htmlText)) return false;
 
     // Manually parse the HTML to find the lengthText object
     let lengths = [];
